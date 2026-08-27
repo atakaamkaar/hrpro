@@ -62,10 +62,10 @@ export default function Services() {
         <div className="mt-14 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {services.map((service, index) => (
             <Reveal key={service.title} delayMs={(index % 3) * 80}>
-              <div className="group rounded-2xl border border-foreground/10 bg-background p-7 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg">
+              <div className="group rounded-2xl border border-foreground/10 bg-background p-7 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-primary/20 hover:shadow-lg">
                 <div
                   className={`mb-5 flex h-12 w-12 items-center justify-center rounded-full text-2xl ${
-                    index % 2 === 0 ? "bg-primary/10" : "bg-secondary/10"
+                    ["bg-primary/10", "bg-secondary/10", "bg-accent/10"][index % 3]
                   }`}
                 >
                   <span aria-hidden="true">{service.icon}</span>

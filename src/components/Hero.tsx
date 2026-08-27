@@ -1,28 +1,40 @@
 import Link from "next/link";
+import fs from "fs";
+import path from "path";
 
-function CompassIllustration() {
+// Drop the real photo at public/hero-photo.jpg and it replaces the abstract
+// illustration automatically — no code change needed. See documentation.md
+// "Adding the hero image".
+const HERO_PHOTO_EXISTS = fs.existsSync(path.join(process.cwd(), "public", "hero-photo.jpg"));
+
+function HeroVisual() {
   return (
     <div className="relative mx-auto w-full max-w-md lg:max-w-none">
       <div className="absolute -left-6 -top-6 h-40 w-40 rounded-full bg-secondary/20 blur-3xl" />
-      <div className="absolute -bottom-8 -right-4 h-48 w-48 rounded-full bg-primary/20 blur-3xl" />
+      <div className="absolute -bottom-8 -right-4 h-48 w-48 rounded-full bg-accent/20 blur-3xl" />
 
       <div className="relative flex aspect-square items-center justify-center overflow-hidden rounded-[2.5rem] border border-foreground/10 bg-linear-to-br from-primary/10 via-background to-secondary/10 shadow-sm">
-        <svg
-          viewBox="0 0 200 200"
-          aria-hidden="true"
-          className="h-2/5 w-2/5 lg:h-1/3 lg:w-1/3"
-        >
-          <circle
-            cx="100"
-            cy="100"
-            r="72"
-            className="fill-none stroke-primary/40"
-            strokeWidth="3"
-          />
-          <circle cx="100" cy="100" r="6" className="fill-primary" />
-          <path d="M100 40 L112 100 L100 100 Z" className="fill-primary" />
-          <path d="M100 160 L88 100 L100 100 Z" className="fill-secondary" />
-        </svg>
+        {HERO_PHOTO_EXISTS ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src="/hero-photo.jpg" alt="The HRProa team" className="h-full w-full object-cover" />
+        ) : (
+          <svg
+            viewBox="0 0 200 200"
+            aria-hidden="true"
+            className="h-2/5 w-2/5 lg:h-1/3 lg:w-1/3"
+          >
+            <circle
+              cx="100"
+              cy="100"
+              r="72"
+              className="fill-none stroke-primary/40"
+              strokeWidth="3"
+            />
+            <circle cx="100" cy="100" r="6" className="fill-primary" />
+            <path d="M100 40 L112 100 L100 100 Z" className="fill-primary" />
+            <path d="M100 160 L88 100 L100 100 Z" className="fill-secondary" />
+          </svg>
+        )}
       </div>
     </div>
   );
@@ -66,7 +78,7 @@ export default function Hero() {
           </div>
         </div>
 
-        <CompassIllustration />
+        <HeroVisual />
       </div>
     </section>
   );

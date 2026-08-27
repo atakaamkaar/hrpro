@@ -3,7 +3,7 @@ import Reveal from "@/components/Reveal";
 
 export default function CtaBanner() {
   return (
-    <section className="bg-primary py-20 lg:py-24">
+    <section className="bg-linear-to-br from-primary via-primary to-primary-light py-20 lg:py-24">
       <Reveal className="mx-auto max-w-2xl px-4 text-center sm:px-6 lg:px-8">
         <h2 className="font-heading text-3xl font-bold tracking-tight text-white sm:text-4xl">
           Stuck somewhere in the process? Let&apos;s talk about it.
