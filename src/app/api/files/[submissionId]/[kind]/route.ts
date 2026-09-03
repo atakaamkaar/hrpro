@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import fs from "fs/promises";
 import path from "path";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
-import { UPLOAD_DIR, contentTypeFor } from "@/lib/uploads";
+import { fetchSubmissionFile, contentTypeFor } from "@/lib/uploads";
 
 // Streams a candidate's resume/video back only to the admin who's reviewing
-// it or the candidate who uploaded it — this is personal data, so it's
-// intentionally not under /public.
+// it or the candidate who uploaded it. The file itself lives in Vercel Blob
+// storage under a "public" (but unguessable, cuid-keyed) pathname — this
+// route is what actually enforces access control: it fetches the blob
+// server-side and streams the bytes back, and the direct Blob URL is never
+// handed to the browser.
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ submissionId: string; kind: string }> }
@@ -28,25 +30,18 @@ export async function GET(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const relativePath = kind === "resume" ? submission.resumePath : submission.videoPath;
-  if (!relativePath) return NextResponse.json({ error: "No file for this submission" }, { status: 404 });
-
-  const fullPath = path.join(UPLOAD_DIR, relativePath);
-
-  // Guard against a submissionId/kind combo ever resolving outside UPLOAD_DIR.
-  if (!fullPath.startsWith(UPLOAD_DIR)) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
+  const pathname = kind === "resume" ? submission.resumePath : submission.videoPath;
+  if (!pathname) return NextResponse.json({ error: "No file for this submission" }, { status: 404 });
 
   try {
-    const data = await fs.readFile(fullPath);
+    const { data, contentType } = await fetchSubmissionFile(pathname);
     return new NextResponse(data, {
       headers: {
-        "Content-Type": contentTypeFor(fullPath),
-        "Content-Disposition": `inline; filename="${path.basename(fullPath)}"`,
+        "Content-Type": contentType || contentTypeFor(pathname),
+        "Content-Disposition": `inline; filename="${path.basename(pathname)}"`,
       },
     });
   } catch {
-    return NextResponse.json({ error: "File missing on disk" }, { status: 404 });
+    return NextResponse.json({ error: "File missing in storage" }, { status: 404 });
   }
 }

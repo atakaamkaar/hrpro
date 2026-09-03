@@ -1,15 +1,14 @@
 // Prisma schema for HRProa.
 //
-// Local development uses SQLite so anyone can `npm install && npx prisma migrate dev`
-// with zero setup (no database server to install). Production is expected to run on
-// PostgreSQL — see documentation.md "Database" section for the one-line switch.
+// Runs on PostgreSQL (a free Neon project works fine for both local dev and
+// production — see documentation.md "Database").
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -48,7 +47,8 @@ model Session {
 }
 
 // A candidate's self-introduction: resume (required) + optional video, reviewed
-// by an admin from the /admin inbox.
+// by an admin from the /admin inbox. resumePath/videoPath store the file's
+// pathname in Vercel Blob storage (see src/lib/uploads.ts), not a local path.
 model Submission {
   id          String           @id @default(cuid())
   userId      String

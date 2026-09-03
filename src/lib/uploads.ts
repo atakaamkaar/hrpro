@@ -1,12 +1,6 @@
 import "server-only";
-import fs from "fs/promises";
 import path from "path";
-
-// Uploaded files live outside /public on purpose: resumes and videos are
-// personal candidate data, not public assets. They're only ever served
-// through the authenticated route handler at
-// src/app/api/files/[submissionId]/[kind]/route.ts.
-export const UPLOAD_DIR = path.join(process.cwd(), "uploads");
+import { put, head, del } from "@vercel/blob";
 
 export const RESUME_MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 export const VIDEO_MAX_BYTES = 200 * 1024 * 1024; // 200 MB
@@ -26,28 +20,42 @@ function extensionFor(file: File) {
   return bySlash ? `.${bySlash}` : "";
 }
 
-// Each user gets one folder (named after their username, which is validated
-// at registration time in src/app/api/auth/register/route.ts to only ever
-// contain filesystem-safe characters — see USERNAME_PATTERN there). All of a
-// user's uploads across every submission live together in that folder;
-// files are prefixed with the submission id so multiple submissions from
-// the same person don't overwrite each other.
+// Each user gets one folder — a path prefix in Blob storage, since Blob
+// doesn't have real directories — named after their username (validated at
+// registration in src/app/api/auth/register/route.ts to only ever contain
+// filesystem-safe characters, see USERNAME_PATTERN there). All of a user's
+// uploads across every submission live under that prefix; files are
+// prefixed with the submission id so multiple submissions from the same
+// person don't overwrite each other.
 export async function saveSubmissionFile(
   username: string,
   submissionId: string,
   kind: "resume" | "video",
   file: File
 ) {
-  const dir = path.join(UPLOAD_DIR, username);
-  await fs.mkdir(dir, { recursive: true });
+  const pathname = `${username}/${submissionId}-${kind}${extensionFor(file)}`;
 
-  const filePath = path.join(dir, `${submissionId}-${kind}${extensionFor(file)}`);
-  const buffer = Buffer.from(await file.arrayBuffer());
-  await fs.writeFile(filePath, buffer);
+  // `addRandomSuffix: false` keeps the pathname predictable so it can be
+  // reconstructed from (username, submissionId, kind) alone — no separate
+  // "here's the real URL" bookkeeping needed. Access is still gated: this
+  // pathname is only ever read back through the authenticated route at
+  // src/app/api/files/[submissionId]/[kind]/route.ts, which fetches the blob
+  // server-side rather than handing out its public URL.
+  const blob = await put(pathname, file, { access: "public", addRandomSuffix: false });
 
-  // Stored as a path relative to UPLOAD_DIR so the DB has no dependency on
-  // the machine's absolute filesystem layout.
-  return path.relative(UPLOAD_DIR, filePath);
+  // Stored as-is in the database; contentTypeFor()/fetchSubmissionFile() are
+  // the only other places that need to know how this is shaped.
+  return blob.pathname;
+}
+
+export async function fetchSubmissionFile(pathname: string) {
+  const blob = await head(pathname);
+  const response = await fetch(blob.downloadUrl);
+  return { data: Buffer.from(await response.arrayBuffer()), contentType: blob.contentType };
+}
+
+export async function deleteSubmissionFile(pathname: string) {
+  await del(pathname);
 }
 
 export function contentTypeFor(filePath: string) {

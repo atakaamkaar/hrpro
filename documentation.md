@@ -16,10 +16,19 @@ sides:
 
 ## Getting started
 
+You need two things before `npm install`: a Postgres database and a Vercel Blob store (for
+resume/video uploads). Both have free tiers and take a couple of minutes:
+
+1. **Database** — create a free project at [neon.tech](https://neon.tech), copy its connection
+   string.
+2. **File storage** — in the Vercel dashboard, open this project → **Storage** → **Create
+   Database** → **Blob**. Once connected, `vercel env pull .env` will fetch the token for you
+   (or copy it manually from the store's ".env.local" tab).
+
 ```bash
 npm install
-cp .env.example .env      # generates working defaults except CAPTCHA_SECRET, see below
-npx prisma migrate dev    # creates the local SQLite database
+cp .env.example .env      # then fill in DATABASE_URL, BLOB_READ_WRITE_TOKEN, CAPTCHA_SECRET
+npx prisma migrate dev    # creates the schema in your Postgres database
 npm run dev
 ```
 
@@ -50,18 +59,10 @@ src/components/*.tsx           UI components (mostly unchanged from the original
 
 ## Database
 
-Uses **SQLite** for local development (`prisma/dev.db`, gitignored) — this means anyone can
-clone the repo and run it with zero setup, no database server to install.
-
-To move to **PostgreSQL** for production (the original ask), it's a two-line change:
-
-1. In `prisma/schema.prisma`, change `provider = "sqlite"` to `provider = "postgresql"` under
-   `datasource db`.
-2. Set `DATABASE_URL` to a real Postgres connection string (e.g. from Neon, Supabase, or
-   Vercel Postgres) in your production environment.
-
-Then run `npx prisma migrate deploy` against that database. Nothing else in the code needs to
-change — the actual queries all go through Prisma, which is database-agnostic.
+Runs on **PostgreSQL** — a free [Neon](https://neon.tech) project works for both local dev and
+production; use the same `DATABASE_URL` in both, or a separate Neon project per environment if
+you'd rather keep dev data separate from production. Run `npx prisma migrate deploy` against
+whichever database `DATABASE_URL` points to.
 
 Schema:
 
@@ -97,24 +98,24 @@ database, since middleware can't query the database itself.
 1. A signed-in user fills out the form at `/candidates/submit-resume`
    (`src/components/SubmitResumeForm.tsx`), which posts to `POST /api/submissions` as
    `multipart/form-data` (needed because it includes files).
-2. The server creates a `Submission` row, then saves the resume (and video, if given) to
-   `uploads/<username>/<submissionId>-<kind>.<ext>` on disk — **not** under `public/`, since
-   resumes are personal data and `public/` is served to anyone. Every file a user has ever
-   uploaded, across every submission, lives together in their one folder, named after their
-   username (per the business decision to organize storage this way). Because the username
-   becomes a folder name, registration only allows letters, numbers, underscores, and hyphens
-   (`USERNAME_PATTERN` in `src/app/api/auth/register/route.ts`) — this also closes off path
-   traversal through the username.
+2. The server creates a `Submission` row, then uploads the resume (and video, if given) to
+   **Vercel Blob** storage under `<username>/<submissionId>-<kind>.<ext>` (`saveSubmissionFile`
+   in `src/lib/uploads.ts`). Every file a user has ever uploaded, across every submission, lives
+   under that one path prefix named after their username (per the business decision to organize
+   storage this way). Because the username becomes part of the storage path, registration only
+   allows letters, numbers, underscores, and hyphens (`USERNAME_PATTERN` in
+   `src/app/api/auth/register/route.ts`).
 3. Files are only ever served back through `GET /api/files/[submissionId]/[kind]`, which checks
-   that the requester is either the owner or an admin before streaming the file.
+   that the requester is either the owner or an admin, then fetches the blob **server-side** and
+   streams the bytes back — the browser never receives Blob's own URL for the file.
 
-`uploads/` is gitignored. In production, this should move to real object storage (S3,
-Cloudflare R2, etc.) rather than local disk — the current setup works for one server but won't
-survive a redeploy or scale to multiple instances. Swapping this out means changing
-`saveSubmissionFile` / the files route in `src/lib/uploads.ts` and
-`src/app/api/files/[submissionId]/[kind]/route.ts` to read/write from that storage instead of
-`fs`; the `Submission.resumePath` / `videoPath` columns can keep storing whatever key the
-storage provider uses.
+**On "public" access:** Vercel Blob doesn't have a private/authenticated access mode — every
+blob has a URL that works for anyone who has it. What keeps these files from being wide open is
+that the pathname includes the submission's `cuid` (long, random, effectively unguessable), and
+the app never exposes that direct Blob URL anywhere — access control lives entirely in the
+`/api/files` route above. This is "unguessable," not truly private; if that's not good enough
+once real candidate data is involved, look at Vercel Blob's client-upload + signed-URL options,
+or move to S3 with real per-object ACLs.
 
 ## CAPTCHA / spam protection
 
