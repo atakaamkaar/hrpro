@@ -7,9 +7,13 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// Neon serves queries through a connection pooler, which is what the app
+// should use at runtime — but migrations need a direct connection, hence
+// directUrl. Both variables come from the Neon integration in Vercel.
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
 enum Role {
