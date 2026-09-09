@@ -109,13 +109,12 @@ database, since middleware can't query the database itself.
    that the requester is either the owner or an admin, then fetches the blob **server-side** and
    streams the bytes back — the browser never receives Blob's own URL for the file.
 
-**On "public" access:** Vercel Blob doesn't have a private/authenticated access mode — every
-blob has a URL that works for anyone who has it. What keeps these files from being wide open is
-that the pathname includes the submission's `cuid` (long, random, effectively unguessable), and
-the app never exposes that direct Blob URL anywhere — access control lives entirely in the
-`/api/files` route above. This is "unguessable," not truly private; if that's not good enough
-once real candidate data is involved, look at Vercel Blob's client-upload + signed-URL options,
-or move to S3 with real per-object ACLs.
+**On access control:** the Blob store is created as **private**, so these files have no
+anonymously-readable URL at all — fetching one requires the store's read-write token, which
+only ever exists server-side (`BLOB_READ_WRITE_TOKEN`). The `/api/files` route above is the
+only path by which a resume or video reaches a browser, and it checks ownership/role first.
+If the store were public instead, anyone holding a file's URL could read it, so keep it
+private.
 
 ## CAPTCHA / spam protection
 

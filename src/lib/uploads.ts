@@ -1,6 +1,6 @@
 import "server-only";
 import path from "path";
-import { put, head, del } from "@vercel/blob";
+import { put, get, del } from "@vercel/blob";
 
 export const RESUME_MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 export const VIDEO_MAX_BYTES = 200 * 1024 * 1024; // 200 MB
@@ -35,23 +35,24 @@ export async function saveSubmissionFile(
 ) {
   const pathname = `${username}/${submissionId}-${kind}${extensionFor(file)}`;
 
+  // The store is private, so these blobs have no anonymous-readable URL at
+  // all — reading one requires the store token, which only the server has.
   // `addRandomSuffix: false` keeps the pathname predictable so it can be
-  // reconstructed from (username, submissionId, kind) alone — no separate
-  // "here's the real URL" bookkeeping needed. Access is still gated: this
-  // pathname is only ever read back through the authenticated route at
-  // src/app/api/files/[submissionId]/[kind]/route.ts, which fetches the blob
-  // server-side rather than handing out its public URL.
-  const blob = await put(pathname, file, { access: "public", addRandomSuffix: false });
+  // reconstructed from (username, submissionId, kind) alone.
+  const blob = await put(pathname, file, { access: "private", addRandomSuffix: false });
 
-  // Stored as-is in the database; contentTypeFor()/fetchSubmissionFile() are
-  // the only other places that need to know how this is shaped.
+  // Stored as-is in the database; fetchSubmissionFile() is the only other
+  // place that needs to know how this is shaped.
   return blob.pathname;
 }
 
+// Returns the blob as a stream so large videos aren't buffered into memory,
+// or null when nothing is stored at that pathname.
 export async function fetchSubmissionFile(pathname: string) {
-  const blob = await head(pathname);
-  const response = await fetch(blob.downloadUrl);
-  return { data: Buffer.from(await response.arrayBuffer()), contentType: blob.contentType };
+  const result = await get(pathname, { access: "private" });
+  if (!result || result.statusCode !== 200) return null;
+
+  return { stream: result.stream, contentType: result.blob.contentType };
 }
 
 export async function deleteSubmissionFile(pathname: string) {

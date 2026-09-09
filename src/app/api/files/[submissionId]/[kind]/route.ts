@@ -5,11 +5,10 @@ import { getCurrentUser } from "@/lib/auth";
 import { fetchSubmissionFile, contentTypeFor } from "@/lib/uploads";
 
 // Streams a candidate's resume/video back only to the admin who's reviewing
-// it or the candidate who uploaded it. The file itself lives in Vercel Blob
-// storage under a "public" (but unguessable, cuid-keyed) pathname — this
-// route is what actually enforces access control: it fetches the blob
-// server-side and streams the bytes back, and the direct Blob URL is never
-// handed to the browser.
+// it or the candidate who uploaded it. The files live in a *private* Vercel
+// Blob store, so they have no anonymously-readable URL — reading one needs
+// the store token, which only the server has. This route is the single way
+// that content reaches a browser, and it checks permissions first.
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ submissionId: string; kind: string }> }
@@ -33,15 +32,13 @@ export async function GET(
   const pathname = kind === "resume" ? submission.resumePath : submission.videoPath;
   if (!pathname) return NextResponse.json({ error: "No file for this submission" }, { status: 404 });
 
-  try {
-    const { data, contentType } = await fetchSubmissionFile(pathname);
-    return new NextResponse(data, {
-      headers: {
-        "Content-Type": contentType || contentTypeFor(pathname),
-        "Content-Disposition": `inline; filename="${path.basename(pathname)}"`,
-      },
-    });
-  } catch {
-    return NextResponse.json({ error: "File missing in storage" }, { status: 404 });
-  }
+  const file = await fetchSubmissionFile(pathname);
+  if (!file) return NextResponse.json({ error: "File missing in storage" }, { status: 404 });
+
+  return new NextResponse(file.stream, {
+    headers: {
+      "Content-Type": file.contentType || contentTypeFor(pathname),
+      "Content-Disposition": `inline; filename="${path.basename(pathname)}"`,
+    },
+  });
 }
