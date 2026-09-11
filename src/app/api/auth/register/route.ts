@@ -34,11 +34,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "That username is already taken." }, { status: 409 });
   }
 
-  // First account ever created becomes the admin, so the site is usable
-  // out of the box without a separate seed step. Every account after that
-  // is a normal user; promote further admins directly in the database.
-  const userCount = await prisma.user.count();
-  const role = userCount === 0 ? "ADMIN" : "USER";
+  // Admin is granted only to the one username named by ADMIN_USERNAME. This
+  // used to be "whoever registers first", which meant that on a public site
+  // with an empty database, a passing stranger could claim admin — and admin
+  // can read every candidate's resume. Fails closed: with ADMIN_USERNAME
+  // unset, nobody is auto-promoted (see documentation.md "Accounts & roles").
+  const adminUsername = process.env.ADMIN_USERNAME?.trim();
+  const role = adminUsername && username.trim() === adminUsername ? "ADMIN" : "USER";
 
   const passwordHash = await hashPassword(password);
   const user = await prisma.user.create({

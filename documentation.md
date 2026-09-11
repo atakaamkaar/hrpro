@@ -77,11 +77,16 @@ Schema:
 
 ## Accounts & roles
 
-Two roles: `ADMIN` and `USER`. There's no invite/promotion UI yet — the **first account ever
-registered is automatically made admin** (see `src/app/api/auth/register/route.ts`), which
-means the app is usable immediately without a manual seeding step. To promote someone else
-later, update their `role` directly in the database (or with `npx prisma studio`, a GUI Prisma
-ships with).
+Two roles: `ADMIN` and `USER`. There's no invite/promotion UI — admin is granted at
+registration to exactly one username, the one named by the **`ADMIN_USERNAME`** environment
+variable (see `src/app/api/auth/register/route.ts`). Set it to the username you plan to sign
+up with *before* the site is reachable, then register that account.
+
+This deliberately fails closed: if `ADMIN_USERNAME` is unset, no account is ever auto-promoted,
+and you grant admin by hand (`npx prisma studio` → edit the user's `role`). An earlier version
+promoted whoever registered first, which is fine on localhost but dangerous on a public URL —
+with an empty database, the first stranger to sign up would have become admin, and admin can
+read every candidate's resume.
 
 - `USER` can: register, log in, submit a resume/video, see their own submissions on
   `/dashboard`.
