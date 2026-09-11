@@ -203,7 +203,42 @@ function MobileGroup({
   );
 }
 
-export default function Header() {
+type SessionUser = {
+  username: string;
+  role: "ADMIN" | "USER";
+} | null;
+
+function AccountLinks({ user, onNavigate }: { user: SessionUser; onNavigate?: () => void }) {
+  if (!user) {
+    return (
+      <Link
+        href="/login"
+        onClick={onNavigate}
+        className="rounded-full bg-secondary px-5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-secondary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      >
+        Log in
+      </Link>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-4">
+      <Link href={user.role === "ADMIN" ? "/admin" : "/dashboard"} onClick={onNavigate} className={navLinkClasses}>
+        {user.role === "ADMIN" ? "Admin" : "Dashboard"}
+      </Link>
+      <form action="/api/auth/logout" method="POST">
+        <button
+          type="submit"
+          className="rounded-full border-2 border-foreground/25 px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:border-secondary"
+        >
+          Log out
+        </button>
+      </form>
+    </div>
+  );
+}
+
+export default function Header({ user = null }: { user?: SessionUser }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [candidatesOpen, setCandidatesOpen] = useState(false);
   const [employersOpen, setEmployersOpen] = useState(false);
@@ -250,13 +285,14 @@ export default function Header() {
           ))}
         </nav>
 
-        <div className="hidden lg:block">
+        <div className="hidden items-center gap-4 lg:flex">
           <Link
             href="/book-consultation"
-            className="rounded-full bg-secondary px-5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-secondary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            className="rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
             Book Consultation
           </Link>
+          <AccountLinks user={user} />
         </div>
 
         <button
@@ -316,10 +352,14 @@ export default function Header() {
             <Link
               href="/book-consultation"
               onClick={closeMobileMenu}
-              className="mt-3 rounded-full bg-secondary px-5 py-3 text-center text-sm font-semibold text-foreground transition-colors hover:bg-secondary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              className="mt-3 rounded-full bg-primary px-5 py-3 text-center text-sm font-semibold text-white transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               Book Consultation
             </Link>
+
+            <div className="mt-3 border-t border-foreground/10 pt-3">
+              <AccountLinks user={user} onNavigate={closeMobileMenu} />
+            </div>
           </div>
         </nav>
       )}

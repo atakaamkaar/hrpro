@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Sora, Inter } from "next/font/google";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { getCurrentUser } from "@/lib/auth";
 import "./globals.css";
 
 const sora = Sora({
@@ -25,7 +26,9 @@ export const metadata: Metadata = {
     "Career services and recruitment support for job seekers and employers — real people, personal guidance, and relationships built over time.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const user = await getCurrentUser();
+
   return (
     <html
       lang="en"
@@ -35,7 +38,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <noscript>
           <style>{`.reveal { opacity: 1 !important; transform: none !important; }`}</style>
         </noscript>
-        <Header />
+        <Header user={user ? { username: user.username, role: user.role } : null} />
         {children}
         <Footer />
       </body>

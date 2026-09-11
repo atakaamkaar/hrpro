@@ -1,0 +1,83 @@
+// Prisma schema for HRProa.
+//
+// Runs on PostgreSQL (a free Neon project works fine for both local dev and
+// production — see documentation.md "Database").
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Neon serves queries through a connection pooler, which is what the app
+// should use at runtime — but migrations need a direct connection, hence
+// directUrl. Both variables come from the Neon integration in Vercel.
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+enum SubmissionStatus {
+  NEW
+  REVIEWED
+}
+
+enum InquiryType {
+  CONTACT
+  CONSULTATION
+}
+
+model User {
+  id           String       @id @default(cuid())
+  username     String       @unique
+  passwordHash String
+  role         Role         @default(USER)
+  createdAt    DateTime     @default(now())
+  sessions     Session[]
+  submissions  Submission[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+// A candidate's self-introduction: resume (required) + optional video, reviewed
+// by an admin from the /admin inbox. resumePath/videoPath store the file's
+// pathname in Vercel Blob storage (see src/lib/uploads.ts), not a local path.
+model Submission {
+  id          String           @id @default(cuid())
+  userId      String
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  note        String?
+  resumePath  String
+  videoPath   String?
+  status      SubmissionStatus @default(NEW)
+  createdAt   DateTime         @default(now())
+}
+
+// General contact / consultation-request messages from the public forms
+// (Contact, Book Consultation). Kept separate from Submission since these
+// don't require an account.
+//
+// `type` distinguishes the two forms because they're handled differently:
+// a CONSULTATION request needs a manual phone confirmation call (hence
+// `phone`), a plain CONTACT message doesn't.
+model Inquiry {
+  id        String           @id @default(cuid())
+  type      InquiryType      @default(CONTACT)
+  name      String
+  email     String
+  phone     String?
+  message   String
+  status    SubmissionStatus @default(NEW)
+  createdAt DateTime         @default(now())
+}

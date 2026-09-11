@@ -129,6 +129,12 @@ export default function Footer() {
             © {year} HRProa. All rights reserved.
           </p>
           <div className="flex items-center gap-5">
+            <Link
+              href="/support"
+              className="rounded-full bg-accent/90 px-4 py-1.5 text-sm font-semibold text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-foreground"
+            >
+              ☕ Buy Me a Coffee
+            </Link>
             {socialLinks.map(({ label, href, icon: Icon }) => (
               <Link
                 key={label}
